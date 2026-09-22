@@ -1,0 +1,1448 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Fase 1.5 + 2 · Log verificado + Adaptador + Facetas + Query</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, sans-serif; background: #0f172a; color: #e2e8f0; padding: 12px; font-size: 13px; }
+  h1 { font-size: 1rem; font-weight: 400; color: #60a5fa; margin-bottom: 10px; }
+  h2 { font-size: 0.7rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; font-weight: 500; }
+  h3 { font-size: 0.8rem; color: #cbd5e1; margin-bottom: 6px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  @media (max-width: 1000px) { .grid { grid-template-columns: 1fr; } }
+  .panel { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 10px; }
+  input, select, textarea { background: #0f172a; border: 1px solid #334155; color: #e2e8f0; border-radius: 6px; padding: 5px 7px; font-family: inherit; font-size: 12px; width: 100%; }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: #3b82f6; }
+  button { background: #1e293b; color: #e2e8f0; border: 1px solid #334155; border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 12px; }
+  button:hover { background: #334155; }
+  button.primary { background: #3b82f6; border-color: #3b82f6; color: #fff; }
+  button.primary:hover { background: #2563eb; }
+  button.danger { background: #7f1d1d; border-color: #991b1b; color: #fecaca; }
+  button.small { padding: 3px 8px; font-size: 11px; }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 6px; }
+  .row label { font-size: 11px; color: #94a3b8; min-width: 70px; }
+  .log { font-family: ui-monospace, monospace; font-size: 11px; max-height: 220px; overflow-y: auto; background: #0f172a; border-radius: 6px; padding: 8px; line-height: 1.5; }
+  .log .ev { border-bottom: 1px solid #1e293b; padding: 2px 0; }
+  .log .ev:last-child { border-bottom: none; }
+  .kv { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid #1e293b; font-size: 12px; gap: 8px; }
+  .kv:last-child { border-bottom: none; }
+  .kv .k { color: #94a3b8; flex-shrink: 0; }
+  .kv .v { color: #e2e8f0; font-family: ui-monospace, monospace; text-align: right; word-break: break-all; }
+  .empty { color: #475569; font-style: italic; font-size: 12px; padding: 6px 0; }
+  .status { font-size: 11px; margin-top: 6px; }
+  .status.ok { color: #4ade80; }
+  .status.err { color: #f87171; }
+  .status.warn { color: #fcd34d; }
+  .pill { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 10px; background: #334155; margin-right: 4px; }
+  .pill.ok { background: #14532d; color: #86efac; }
+  .pill.err { background: #7f1d1d; color: #fecaca; }
+  .pill.warn { background: #78350f; color: #fcd34d; }
+  .pill.info { background: #1e3a5f; color: #93c5fd; }
+  .item { display: flex; justify-content: space-between; align-items: center; padding: 5px 6px; border-bottom: 1px solid #1e293b; font-size: 12px; gap: 8px; }
+  .item:last-child { border-bottom: none; }
+  .item .actions { display: flex; gap: 4px; }
+  .tests { font-family: ui-monospace, monospace; font-size: 11px; max-height: 240px; overflow-y: auto; background: #0f172a; border-radius: 6px; padding: 8px; }
+  .tests .t { padding: 1px 0; }
+  .aviso { padding: 4px 6px; margin: 2px 0; border-left: 3px solid; background: #0f172a; border-radius: 4px; font-size: 11px; }
+  .aviso.seguro { border-color: #4ade80; }
+  .aviso.probable { border-color: #fcd34d; }
+  .aviso.especulativo { border-color: #f87171; }
+  details { margin: 6px 0; }
+  summary { cursor: pointer; color: #60a5fa; font-size: 12px; }
+  pre { background: #0f172a; padding: 8px; border-radius: 6px; font-size: 11px; overflow: auto; max-height: 200px; }
+  .tags { display: flex; flex-wrap: wrap; gap: 4px; }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 12px; background: #334155; font-size: 11px; cursor: pointer; }
+  .tag.active { background: #3b82f6; color: #fff; }
+</style>
+</head>
+<body>
+<h1>⬡ Fase 1.5 + 2 · Log verificado · Adaptador JSON · Facetas · Query · Replay</h1>
+
+<div class="grid">
+
+  <!-- Formulario -->
+  <div class="panel">
+    <h2>Paciente (alta / edición)</h2>
+    <div class="row"><label>id</label><input id="f_id" readonly></div>
+    <div class="row"><label>nombre *</label><input id="f_nombre"></div>
+    <div class="row"><label>apellidos *</label><input id="f_apellidos"></div>
+    <div class="row"><label>fechaNac *</label><input id="f_fechaNac" type="date"></div>
+    <div class="row"><label>sexo</label><select id="f_sexo"><option value="">—</option><option>M</option><option>F</option><option>X</option></select></div>
+    <div class="row"><label>telefono</label><input id="f_telefono"></div>
+    <div class="row"><label>email</label><input id="f_email"></div>
+    <div class="row"><label>ciudad</label><input id="f_ciudad"></div>
+    <div class="row"><label>aseguradora</label><input id="f_aseguradora"></div>
+    <div class="row"><label>etiquetas</label><input id="f_etiquetas" placeholder="cronico, urgente (separadas por coma)"></div>
+    <div class="row">
+      <button class="primary" id="btnGuardar">💾 Guardar</button>
+      <button id="btnNuevo">➕ Nuevo</button>
+      <button id="btnDeshacer" title="Revierte el último cambio del paciente cargado">↩ Deshacer</button>
+      <button class="danger" id="btnArchivar">📦 Archivar</button>
+    </div>
+    <div class="status" id="formStatus"></div>
+  </div>
+
+  <!-- Lista + facetas -->
+  <div class="panel">
+    <h2>Pacientes activos</h2>
+    <div class="row">
+      <label>Agrupar por</label>
+      <select id="facetaSel"><option value="">— sin agrupar —</option></select>
+    </div>
+    <div id="listaPacientes"><div class="empty">Sin registros.</div></div>
+  </div>
+
+  <!-- Replay / historial por paciente -->
+  <div class="panel">
+    <h2>🔎 Ver paciente en un momento pasado</h2>
+    <div class="row">
+      <label>Paciente</label>
+      <select id="replayId"><option value="">— selecciona —</option></select>
+      <label>Fecha</label>
+      <input id="replayFecha" type="datetime-local">
+      <button id="btnReplay" class="small primary">↻ Ver estado</button>
+    </div>
+    <div id="replayOut"><div class="empty">Selecciona paciente y fecha.</div></div>
+    <h3 style="margin-top:10px;">Historial completo del paciente</h3>
+    <div id="historialPaciente"><div class="empty">Selecciona un paciente.</div></div>
+  </div>
+
+  <!-- Query -->
+  <div class="panel">
+    <h2>🧪 Query Builder</h2>
+    <div id="queryRows"></div>
+    <div class="row" style="margin-top:6px;">
+      <button class="small" id="btnAddFiltro">+ filtro</button>
+      <button class="small primary" id="btnQuery">🔍 Buscar</button>
+      <button class="small" id="btnQueryReset">Limpiar</button>
+    </div>
+    <div id="queryOut" style="margin-top:8px;"><div class="empty">Sin búsqueda todavía.</div></div>
+  </div>
+
+  <!-- Log completo -->
+  <div class="panel" style="grid-column: 1 / -1;">
+    <h2>Log completo (fuente de verdad · inmutable)</h2>
+    <div class="row">
+      <label>Filtro</label>
+      <input id="logFiltro" placeholder="texto, tipo de evento o entidadId" style="flex:1;">
+      <label>Límite</label>
+      <input id="logLimite" type="number" value="100" style="width:80px;">
+    </div>
+    <div class="log" id="logView"><div class="empty">Sin eventos.</div></div>
+    <div class="kv"><span class="k">total eventos</span><span class="v" id="countEv">0</span></div>
+    <div class="kv"><span class="k">snapshots</span><span class="v" id="countSnap">0</span></div>
+    <div class="row" style="margin-top:8px;">
+      <button id="btnRebuild">↻ Rebuild vistas</button>
+      <button id="btnSnapshot">📸 Forzar snapshot</button>
+      <button class="danger" id="btnReset">🗑 Reset total</button>
+    </div>
+  </div>
+
+  <!-- Import/Export -->
+  <div class="panel">
+    <h2>📥 Importar JSON</h2>
+    <textarea id="importJson" rows="6" placeholder='[{"name":"Ana","surname":"Pérez","tel":"600111222"}]'></textarea>
+    <div class="row" style="margin-top:6px;">
+      <button class="small primary" id="btnImport">Importar con inferencia</button>
+      <button class="small" id="btnImportEjemplo">Cargar ejemplo</button>
+    </div>
+    <div id="importAvisos" style="margin-top:8px;"></div>
+  </div>
+
+  <div class="panel">
+    <h2>📤 Exportar</h2>
+    <div class="row">
+      <button class="small primary" id="btnExportTodo">Backup completo (JSON)</button>
+      <button class="small" id="btnExportPacientes">Solo pacientes actuales</button>
+      <button class="small" id="btnExportLog">Solo log (JSONL)</button>
+    </div>
+    <div id="exportOut" style="margin-top:6px;"><div class="empty">Sin exportaciones.</div></div>
+  </div>
+
+  <!-- Tests -->
+  <div class="panel" style="grid-column: 1 / -1;">
+    <h2>Tests</h2>
+    <div class="tests" id="testsOut"></div>
+  </div>
+
+</div>
+
+<script type="module">
+'use strict';
+
+/* ═══════════════════════════════════════════════════════════════════════
+   NÚCLEO · lógica pura, sin DOM ni APIs del navegador
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/** Mediador. Única vía de comunicación entre capas. */
+class EventBus {
+  #listeners = new Map();
+  on(ev, cb) {
+    if (!this.#listeners.has(ev)) this.#listeners.set(ev, new Set());
+    this.#listeners.get(ev).add(cb);
+    return () => this.#listeners.get(ev)?.delete(cb);
+  }
+  emit(ev, payload) {
+    this.#listeners.get(ev)?.forEach(cb => {
+      try { cb(payload); } catch (e) { console.error(`[bus:${ev}]`, e); }
+    });
+  }
+}
+
+const BUS = new EventBus();
+
+/**
+ * Logger con niveles. Envía a consola y a un buffer consultable.
+ * El usuario decide el nivel mínimo. Los logs se pueden exportar y limpiar
+ * desde fuera (tu programa que los quita, por ejemplo).
+ */
+class Logger {
+  static #NIVELES = ['debug','info','warn','error'];
+  static #nivel = 'info';
+  static #buffer = [];
+  static #MAX = 500;
+
+  static setNivel(n) { if (Logger.#NIVELES.includes(n)) Logger.#nivel = n; }
+  static getNivel() { return Logger.#nivel; }
+
+  static #log(nivel, modulo, msg, datos = null) {
+    if (Logger.#NIVELES.indexOf(nivel) < Logger.#NIVELES.indexOf(Logger.#nivel)) return;
+    const entry = { ts: new Date().toISOString(), nivel, modulo, msg, datos };
+    Logger.#buffer.push(entry);
+    if (Logger.#buffer.length > Logger.#MAX) Logger.#buffer.shift();
+    const fn = nivel === 'error' ? 'error' : nivel === 'warn' ? 'warn' : 'log';
+    console[fn](`[${modulo}] ${msg}`, datos ?? '');
+    BUS.emit('log:nuevo', entry);
+  }
+  static debug(m, msg, d) { Logger.#log('debug', m, msg, d); }
+  static info(m, msg, d)  { Logger.#log('info',  m, msg, d); }
+  static warn(m, msg, d)  { Logger.#log('warn',  m, msg, d); }
+  static error(m, msg, d) { Logger.#log('error', m, msg, d); }
+  static getLogs() { return [...Logger.#buffer]; }
+  static clear() { Logger.#buffer = []; BUS.emit('log:limpiado'); }
+  static exportText() {
+    return Logger.#buffer.map(l => `[${l.ts}] [${l.nivel.toUpperCase()}] [${l.modulo}] ${l.msg}${l.datos ? ' ' + JSON.stringify(l.datos) : ''}`).join('\n');
+  }
+}
+
+/** Contrato de resultado. Todo lo que puede fallar por negocio devuelve Result. */
+const Ok = (datos, avisos = []) => ({ ok: true, datos, avisos });
+const Err = (error, razon, detalles = null) => ({ ok: false, error, razon, detalles });
+
+/**
+ * Esquema declarativo. Única fuente de verdad sobre entidades y campos.
+ * Añadir un campo aquí hace que la UI, validación, inferencia y query lo
+ * reconozcan automáticamente.
+ */
+const ESQUEMA = Object.freeze({
+  version: 1,
+  entidades: {
+    paciente: {
+      nombre: 'Paciente',
+      campos: {
+        id:          { tipo: 'uuid', pk: true },
+        nombre:      { tipo: 'text', required: true, indexed: true, faceta: 'demografia', aliases: ['name','nombres','nombre_completo'] },
+        apellidos:   { tipo: 'text', required: true, indexed: true, faceta: 'demografia', aliases: ['surname','apellido','lastname','apellidos_completos'] },
+        fechaNac:    { tipo: 'date', required: true, indexed: true, faceta: 'demografia', aliases: ['fechanacimiento','fecha_nac','birthdate','cumple','fnac'] },
+        sexo:        { tipo: 'enum', enum: ['M','F','X'], indexed: true, faceta: 'demografia', aliases: ['genero','gender','sex'] },
+        telefono:    { tipo: 'text', history: true, aliases: ['tel','phone','movil','móvil','cel','celular','tlfn','tlf','tfno'] },
+        email:       { tipo: 'text', history: true, aliases: ['mail','correo','e-mail'] },
+        ciudad:      { tipo: 'text', indexed: true, faceta: 'demografia', aliases: ['city','localidad','poblacion'] },
+        aseguradora: { tipo: 'text', history: true, indexed: true, faceta: 'administrativa', aliases: ['seguro','mutua','insurance'] },
+        etiquetas:   { tipo: 'tags', indexed: true, faceta: 'clinica', aliases: ['tags','labels'] },
+        activo:      { tipo: 'bool', indexed: true, faceta: 'administrativa', aliases: ['active','vigente'] }
+      },
+      eventos: { creado: 'paciente_creado', archivado: 'paciente_archivado' }
+    }
+  },
+  facetas: {
+    demografia: ['nombre','apellidos','fechaNac','sexo','ciudad'],
+    administrativa: ['aseguradora','activo'],
+    clinica: ['etiquetas']
+  }
+});
+
+/** Motor de esquema: valida registros. Puro. */
+class EsquemaEngine {
+  static validar(entidad, reg) {
+    const ent = ESQUEMA.entidades[entidad];
+    if (!ent) return Err('esquema', `Entidad "${entidad}" no existe`);
+    const errs = [];
+    for (const [campo, def] of Object.entries(ent.campos)) {
+      const v = reg[campo];
+      const vacio = v === undefined || v === null || v === '';
+      if (def.required && vacio) { errs.push(`"${campo}" obligatorio`); continue; }
+      if (vacio) continue;
+      if (def.tipo === 'number' && typeof v !== 'number') errs.push(`"${campo}" debe ser número`);
+      if (def.tipo === 'bool' && typeof v !== 'boolean') errs.push(`"${campo}" debe ser booleano`);
+      if (def.tipo === 'enum' && !def.enum.includes(v)) errs.push(`"${campo}" debe ser ${def.enum.join('/')}`);
+      if (def.tipo === 'tags' && !Array.isArray(v)) errs.push(`"${campo}" debe ser array`);
+      if (def.tipo === 'date' && isNaN(Date.parse(v))) errs.push(`"${campo}" no es fecha válida`);
+    }
+    return errs.length ? Err('validacion', 'Registro inválido', errs) : Ok(reg);
+  }
+  static camposConHistorico(e) {
+    return Object.entries(ESQUEMA.entidades[e]?.campos ?? {}).filter(([,d]) => d.history).map(([k]) => k);
+  }
+  static camposDeFaceta(e, faceta) {
+    return ESQUEMA.facetas[faceta]?.filter(c => ESQUEMA.entidades[e]?.campos[c]) ?? [];
+  }
+}
+
+/** Fábrica de eventos. Un evento es un hecho inmutable. */
+class EventoFactory {
+  static #c = 0;
+  static #id() { return crypto?.randomUUID?.() ?? `${Date.now()}-${++EventoFactory.#c}`; }
+  static crear({ entidad, entidadId, tipo, actor = 'usuario_local', campo = null, de = null, a = null, contexto = {} }) {
+    if (!entidad || !entidadId || !tipo) return Err('evento', 'entidad, entidadId y tipo son obligatorios');
+    return Ok({ id: EventoFactory.#id(), ts: new Date().toISOString(), entidad, entidadId, tipo, campo, de, a, actor, contexto, version: 1 });
+  }
+  /** Calcula el diff entre dos versiones de un registro y devuelve eventos. */
+  static diff(entidad, antes, despues, actor = 'usuario_local') {
+    const eventos = [];
+    const conHist = new Set(EsquemaEngine.camposConHistorico(entidad));
+    if (!antes) {
+      const ev = EventoFactory.crear({ entidad, entidadId: despues.id, tipo: ESQUEMA.entidades[entidad].eventos.creado, actor, a: despues });
+      if (!ev.ok) return ev;
+      return Ok([ev.datos]);
+    }
+    for (const campo of Object.keys(despues)) {
+      if (campo === 'id') continue;
+      const va = antes[campo], vb = despues[campo];
+      if (JSON.stringify(va) === JSON.stringify(vb)) continue;
+      const tipo = conHist.has(campo) ? 'campo_modificado_historico' : 'campo_modificado';
+      const ev = EventoFactory.crear({ entidad, entidadId: despues.id, tipo, campo, de: va, a: vb, actor });
+      if (!ev.ok) return ev;
+      eventos.push(ev.datos);
+    }
+    return Ok(eventos);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   VISTAS · proyecciones puras del log. init / apply / result.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+const VistaRegistro = {
+  id: 'registro',
+  init: () => ({ porEntidad: {} }),
+  apply: (e, ev) => {
+    const { entidad, entidadId, tipo, campo, a } = ev;
+    if (!e.porEntidad[entidad]) e.porEntidad[entidad] = {};
+    const col = e.porEntidad[entidad];
+    if (tipo === ESQUEMA.entidades[entidad]?.eventos.creado) { col[entidadId] = { ...a }; return e; }
+    if (tipo === ESQUEMA.entidades[entidad]?.eventos.archivado) { if (col[entidadId]) col[entidadId].activo = false; return e; }
+    if (tipo === 'campo_modificado' || tipo === 'campo_modificado_historico') {
+      if (!col[entidadId]) col[entidadId] = { id: entidadId };
+      col[entidadId][campo] = a;
+    }
+    return e;
+  },
+  result: (e) => e.porEntidad
+};
+
+const VistaContadores = {
+  id: 'contadores',
+  init: () => ({ porTipo: {}, porEntidad: {} }),
+  apply: (e, ev) => {
+    e.porTipo[ev.tipo] = (e.porTipo[ev.tipo] || 0) + 1;
+    e.porEntidad[ev.entidad] = (e.porEntidad[ev.entidad] || 0) + 1;
+    return e;
+  },
+  result: (e) => e
+};
+
+const VistaHistorico = {
+  id: 'historico',
+  init: () => [],
+  apply: (e, ev) => {
+    if (ev.tipo === 'campo_modificado_historico') {
+      e.push({ ts: ev.ts, entidad: ev.entidad, entidadId: ev.entidadId, campo: ev.campo, de: ev.de, a: ev.a, actor: ev.actor });
+    }
+    return e;
+  },
+  result: (e) => e
+};
+
+/** Índice inverso: etiqueta → [ids]. Se reconstruye como cualquier vista. */
+const VistaIndiceEtiquetas = {
+  id: 'indiceEtiquetas',
+  init: () => ({}),
+  apply: (e, ev) => {
+    if (ev.entidad !== 'paciente') return e;
+    if (ev.tipo === 'paciente_creado' || (ev.tipo === 'campo_modificado' && ev.campo === 'etiquetas')) {
+      const nuevas = Array.isArray(ev.a?.etiquetas) ? ev.a.etiquetas : (ev.campo === 'etiquetas' ? ev.a : []);
+      const anteriores = ev.tipo === 'campo_modificado' ? (ev.de || []) : [];
+      for (const t of anteriores) if (e[t]) e[t] = e[t].filter(id => id !== ev.entidadId);
+      for (const t of nuevas) { if (!e[t]) e[t] = []; if (!e[t].includes(ev.entidadId)) e[t].push(ev.entidadId); }
+    }
+    return e;
+  },
+  result: (e) => e
+};
+
+const VISTAS = [VistaRegistro, VistaContadores, VistaHistorico, VistaIndiceEtiquetas];
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PUERTOS · contratos documentados
+   ═══════════════════════════════════════════════════════════════════════ */
+
+class PersistencePort {
+  async appendEvento() { throw new Error('not implemented'); }
+  async allEventos() { throw new Error('not implemented'); }
+  async guardarSnapshot() { throw new Error('not implemented'); }
+  async cargarSnapshot() { throw new Error('not implemented'); }
+  async todosSnapshots() { throw new Error('not implemented'); }
+  async clear() { throw new Error('not implemented'); }
+  async size() { throw new Error('not implemented'); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ADAPTADORES
+   ═══════════════════════════════════════════════════════════════════════ */
+
+class MemoryAdapter extends PersistencePort {
+  constructor() { super(); this._ev = []; this._sn = new Map(); }
+  async appendEvento(ev) { this._ev.push(ev); }
+  async allEventos() { return [...this._ev]; }
+  async guardarSnapshot(s) { this._sn.set(s.vistaId, s); }
+  async cargarSnapshot(id) { return this._sn.get(id) || null; }
+  async todosSnapshots() { return [...this._sn.values()]; }
+  async clear() { this._ev = []; this._sn.clear(); }
+  async size() { return this._ev.length; }
+}
+
+class IndexedDBAdapter extends PersistencePort {
+  static DB = 'fase12_db';
+  static V = 1;
+  #p;
+  constructor() {
+    super();
+    this.#p = new Promise((res, rej) => {
+      const r = indexedDB.open(IndexedDBAdapter.DB, IndexedDBAdapter.V);
+      r.onupgradeneeded = () => {
+        const db = r.result;
+        if (!db.objectStoreNames.contains('eventos')) db.createObjectStore('eventos', { keyPath: 'idx', autoIncrement: true });
+        if (!db.objectStoreNames.contains('snapshots')) db.createObjectStore('snapshots', { keyPath: 'vistaId' });
+      };
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+    });
+  }
+  async #db() { return this.#p; }
+  async appendEvento(ev) {
+    const db = await this.#db();
+    return new Promise((res, rej) => {
+      const tx = db.transaction('eventos','readwrite');
+      tx.objectStore('eventos').add(ev);
+      tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error);
+    });
+  }
+  async allEventos() {
+    const db = await this.#db();
+    return new Promise((res, rej) => {
+      const r = db.transaction('eventos','readonly').objectStore('eventos').getAll();
+      r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+    });
+  }
+  async guardarSnapshot(s) {
+    const db = await this.#db();
+    return new Promise((res, rej) => {
+      const tx = db.transaction('snapshots','readwrite');
+      tx.objectStore('snapshots').put(s);
+      tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error);
+    });
+  }
+  async cargarSnapshot(id) {
+    const db = await this.#db();
+    return new Promise((res, rej) => {
+      const r = db.transaction('snapshots','readonly').objectStore('snapshots').get(id);
+      r.onsuccess = () => res(r.result || null); r.onerror = () => rej(r.error);
+    });
+  }
+  async todosSnapshots() {
+    const db = await this.#db();
+    return new Promise((res, rej) => {
+      const r = db.transaction('snapshots','readonly').objectStore('snapshots').getAll();
+      r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+    });
+  }
+  async clear() {
+    const db = await this.#db();
+    return new Promise((res, rej) => {
+      const tx = db.transaction(['eventos','snapshots'],'readwrite');
+      tx.objectStore('eventos').clear();
+      tx.objectStore('snapshots').clear();
+      tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error);
+    });
+  }
+  async size() {
+    const db = await this.#db();
+    return new Promise((res, rej) => {
+      const r = db.transaction('eventos','readonly').objectStore('eventos').count();
+      r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+    });
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   DICCIONARIO + INFERENCIA
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Diccionario externo de sinónimos y typos comunes.
+ * Se puede reemplazar por un JSON cargado de fuera sin tocar código.
+ */
+const Diccionario = {
+  typos: {
+    telefono: ['tefolono','telefno','tlfno','tefno','tlfn','tflno','tefono'],
+    nombre: ['nonbre','nombe','nomre'],
+    apellidos: ['apelliods','apelidos','apellido'],
+    fechaNac: ['fechanaciemiento','fehcanac','fechadenacimiento'],
+    email: ['emial','correo','mail'],
+    ciudad: ['ciuda','ciuddad'],
+    aseguradora: ['aseguaradora','segudora','aseguradroa']
+  },
+  /** Distancia de Levenshtein clásica. O(n·m). */
+  levenshtein(a, b) {
+    a = a.toLowerCase(); b = b.toLowerCase();
+    if (a === b) return 0;
+    if (!a.length) return b.length;
+    if (!b.length) return a.length;
+    let prev = Array.from({length: b.length + 1}, (_, i) => i);
+    let curr = new Array(b.length + 1);
+    for (let i = 1; i <= a.length; i++) {
+      curr[0] = i;
+      for (let j = 1; j <= b.length; j++) {
+        const cost = a[i-1] === b[j-1] ? 0 : 1;
+        curr[j] = Math.min(curr[j-1] + 1, prev[j] + 1, prev[j-1] + cost);
+      }
+      [prev, curr] = [curr, prev];
+    }
+    return prev[b.length];
+  }
+};
+
+/**
+ * Inferidor. Dada una entrada cruda, produce un registro normalizado
+ * + avisos de inferencia con nivel (seguro / probable / especulativo).
+ * Reglas:
+ *   1. Campo canónico directo → seguro, sin aviso.
+ *   2. Alias declarado en esquema → seguro, aviso informativo.
+ *   3. Typo en diccionario → probable, aviso.
+ *   4. Distancia Levenshtein ≤ 2 sobre claves del esquema → probable, aviso.
+ *   5. Nada → hueco, aviso especulativo si el campo es required.
+ */
+class Inferidor {
+  static inferir(entidad, raw) {
+    const ent = ESQUEMA.entidades[entidad];
+    if (!ent) return Err('esquema', `Entidad "${entidad}" no existe`);
+    const datos = {};
+    const avisos = [];
+    const usados = new Set();
+
+    for (const [campo, def] of Object.entries(ent.campos)) {
+      if (def.pk) continue;
+      // 1. Nombre canónico
+      if (campo in raw) { datos[campo] = raw[campo]; usados.add(campo); continue; }
+      // 2. Alias declarado
+      const alias = def.aliases?.find(a => a in raw);
+      if (alias) {
+        datos[campo] = raw[alias];
+        usados.add(alias);
+        avisos.push({ nivel: 'seguro', campo, mensaje: `"${alias}" → "${campo}"`, valorOriginal: alias });
+        continue;
+      }
+      // 3. Typos del diccionario
+      const typo = Diccionario.typos[campo]?.find(t => t in raw);
+      if (typo) {
+        datos[campo] = raw[typo];
+        usados.add(typo);
+        avisos.push({ nivel: 'probable', campo, mensaje: `typo "${typo}" → "${campo}"`, valorOriginal: typo });
+        continue;
+      }
+      // 4. Levenshtein sobre claves del raw
+      let mejor = null, mejorDist = 99;
+      for (const k of Object.keys(raw)) {
+        if (usados.has(k)) continue;
+        const d = Diccionario.levenshtein(k, campo);
+        if (d < mejorDist) { mejorDist = d; mejor = k; }
+      }
+      if (mejor && mejorDist <= 2) {
+        datos[campo] = raw[mejor];
+        usados.add(mejor);
+        avisos.push({ nivel: 'probable', campo, mensaje: `"${mejor}" ≈ "${campo}" (dist ${mejorDist})`, valorOriginal: mejor });
+        continue;
+      }
+      // 5. Hueco
+      if (def.required) {
+        avisos.push({ nivel: 'especulativo', campo, mensaje: `"${campo}" obligatorio pero no encontrado` });
+      }
+    }
+    // Claves del raw no usadas
+    for (const k of Object.keys(raw)) {
+      if (!usados.has(k)) avisos.push({ nivel: 'especulativo', campo: k, mensaje: `clave desconocida "${k}" ignorada` });
+    }
+    if (!datos.id) datos.id = crypto?.randomUUID?.() ?? `p_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+    return Ok(datos, avisos);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   QUERY ENGINE · filtros declarativos sobre registros
+   ═══════════════════════════════════════════════════════════════════════ */
+
+class QueryEngine {
+  static OPERADORES = {
+    eq:      (v, x) => v === x,
+    ne:      (v, x) => v !== x,
+    contiene:(v, x) => String(v ?? '').toLowerCase().includes(String(x).toLowerCase()),
+    gt:      (v, x) => Number(v) > Number(x),
+    lt:      (v, x) => Number(v) < Number(x),
+    entre:   (v, x) => Number(v) >= Number(x.min) && Number(v) <= Number(x.max),
+    tieneTag:(v, x) => Array.isArray(v) && v.includes(x)
+  };
+
+  static filtrar(registros, filtros, combinator = 'AND') {
+    if (!filtros?.length) return [...registros];
+    const evaluar = (reg) => {
+      const res = filtros.map(f => {
+        const op = QueryEngine.OPERADORES[f.op];
+        if (!op) return false;
+        return op(reg[f.campo], f.valor);
+      });
+      return combinator === 'OR' ? res.some(Boolean) : res.every(Boolean);
+    };
+    return registros.filter(evaluar);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   CORE · orquesta append, derive, rebuild, snapshots, replay, historial
+   ═══════════════════════════════════════════════════════════════════════ */
+
+class Core {
+  static SNAPSHOT_CADA = 100;
+  #port; #estados = new Map(); #eventos = null;
+
+  constructor(port) { this.#port = port; }
+
+  async iniciar() {
+    this.#eventos = await this.#port.allEventos();
+    for (const v of VISTAS) {
+      const snap = await this.#port.cargarSnapshot(v.id);
+      let estado = v.init(), desde = 0;
+      if (snap && typeof snap.ultimoIdx === 'number') { estado = snap.estado; desde = snap.ultimoIdx + 1; }
+      for (let i = desde; i < this.#eventos.length; i++) estado = v.apply(estado, this.#eventos[i]);
+      this.#estados.set(v.id, estado);
+    }
+    Logger.info('core', `iniciado con ${this.#eventos.length} eventos`);
+    BUS.emit('core:iniciado', { total: this.#eventos.length });
+  }
+
+  async append(evento) {
+    await this.#port.appendEvento(evento);
+    this.#eventos.push(evento);
+    for (const v of VISTAS) {
+      const e = this.#estados.get(v.id) ?? v.init();
+      this.#estados.set(v.id, v.apply(e, evento));
+    }
+    BUS.emit('core:append', evento);
+    if (this.#eventos.length % Core.SNAPSHOT_CADA === 0) await this.forzarSnapshot();
+    return Ok(evento);
+  }
+
+  snapshotVista(vistaId) {
+    const v = VISTAS.find(x => x.id === vistaId);
+    if (!v) return Err('vista', `"${vistaId}" no registrada`);
+    const estado = this.#estados.get(vistaId) ?? v.init();
+    return Ok(v.result(estado));
+  }
+
+  async rebuild(vistaId = null) {
+    const ids = vistaId ? [vistaId] : VISTAS.map(v => v.id);
+    for (const id of ids) {
+      const v = VISTAS.find(x => x.id === id);
+      if (!v) continue;
+      let e = v.init();
+      for (const ev of this.#eventos) e = v.apply(e, ev);
+      this.#estados.set(id, e);
+    }
+    BUS.emit('core:rebuild', ids);
+    return Ok(ids);
+  }
+
+  async forzarSnapshot() {
+    const ultimoIdx = this.#eventos.length - 1;
+    for (const v of VISTAS) {
+      const e = this.#estados.get(v.id) ?? v.init();
+      await this.#port.guardarSnapshot({ vistaId: v.id, ultimoIdx, estado: e, ts: new Date().toISOString(), version: ESQUEMA.version });
+    }
+    BUS.emit('core:snapshot', { ultimoIdx });
+    Logger.debug('core', `snapshot guardado en idx ${ultimoIdx}`);
+  }
+
+  async reset() {
+    await this.#port.clear();
+    this.#eventos = [];
+    this.#estados.clear();
+    for (const v of VISTAS) this.#estados.set(v.id, v.init());
+    BUS.emit('core:reset');
+  }
+
+  /** Todos los eventos de una entidad+id, en orden. */
+  historialDe(entidad, entidadId) {
+    if (!this.#eventos) return [];
+    return this.#eventos.filter(e => e.entidad === entidad && e.entidadId === entidadId);
+  }
+
+  /**
+   * Reconstruye el estado de una entidad en un momento concreto.
+   * Aplica solo los eventos de esa entidad, hasta idx o fecha (inclusive).
+   */
+  estadoEn(entidad, entidadId, { idx = null, fecha = null } = {}) {
+    if (!this.#eventos) return null;
+    let corte = this.#eventos.length;
+    if (idx !== null) corte = Math.min(corte, idx + 1);
+    if (fecha) {
+      const t = new Date(fecha).getTime();
+      corte = this.#eventos.findIndex(e => new Date(e.ts).getTime() > t);
+      if (corte === -1) corte = this.#eventos.length;
+    }
+    let estado = null;
+    for (let i = 0; i < corte; i++) {
+      const ev = this.#eventos[i];
+      if (ev.entidad !== entidad || ev.entidadId !== entidadId) continue;
+      estado = VistaRegistro.apply({ porEntidad: { [entidad]: estado ? { [entidadId]: estado } : {} } }, ev)
+        .porEntidad[entidad][entidadId];
+    }
+    return estado;
+  }
+
+  get totalEventos() { return this.#eventos?.length ?? 0; }
+  get eventos() { return [...(this.#eventos ?? [])]; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SERVICIOS DE APLICACIÓN
+   ═══════════════════════════════════════════════════════════════════════ */
+
+class PacienteService {
+  constructor(core) { this.core = core; }
+
+  async crear(datos) {
+    if (!datos.id) datos.id = crypto?.randomUUID?.() ?? `p_${Date.now()}`;
+    if (datos.activo === undefined) datos.activo = true;
+    const v = EsquemaEngine.validar('paciente', datos);
+    if (!v.ok) return v;
+    const evs = EventoFactory.diff('paciente', null, datos);
+    if (!evs.ok) return evs;
+    for (const ev of evs.datos) await this.core.append(ev);
+    Logger.info('svc', `paciente creado ${datos.id}`);
+    return Ok(datos);
+  }
+
+  async editar(id, cambios) {
+    const snap = this.core.snapshotVista('registro');
+    const actual = snap.datos.paciente?.[id];
+    if (!actual) return Err('no_encontrado', `Paciente ${id} no existe`);
+    const fusion = { ...actual, ...cambios, id };
+    const v = EsquemaEngine.validar('paciente', fusion);
+    if (!v.ok) return v;
+    const evs = EventoFactory.diff('paciente', actual, fusion);
+    if (!evs.ok) return evs;
+    if (!evs.datos.length) return Ok(fusion);
+    for (const ev of evs.datos) await this.core.append(ev);
+    Logger.info('svc', `paciente editado ${id} (${evs.datos.length} eventos)`);
+    return Ok(fusion);
+  }
+
+  async archivar(id) {
+    const snap = this.core.snapshotVista('registro');
+    const actual = snap.datos.paciente?.[id];
+    if (!actual) return Err('no_encontrado', `Paciente ${id} no existe`);
+    if (!actual.activo) return Ok(actual);
+    const ev = EventoFactory.crear({ entidad: 'paciente', entidadId: id, tipo: ESQUEMA.entidades.paciente.eventos.archivado, a: { activo: false } });
+    if (!ev.ok) return ev;
+    await this.core.append(ev.datos);
+    Logger.info('svc', `paciente archivado ${id}`);
+    return Ok({ ...actual, activo: false });
+  }
+
+  /**
+   * Deshace el último cambio reversible del paciente.
+   * No borra eventos: emite un evento nuevo con el valor anterior.
+   * Si no hay cambios, devuelve Err.
+   */
+  async deshacerUltimo(id) {
+    const historial = this.core.historialDe('paciente', id);
+    const reversibles = historial.filter(e => e.tipo === 'campo_modificado' || e.tipo === 'campo_modificado_historico');
+    if (!reversibles.length) return Err('nada_que_deshacer', 'No hay cambios reversibles');
+    const ultimo = reversibles[reversibles.length - 1];
+    const tipo = ultimo.tipo;
+    const ev = EventoFactory.crear({
+      entidad: 'paciente', entidadId: id, tipo,
+      campo: ultimo.campo, de: ultimo.a, a: ultimo.de,
+      actor: 'deshacer'
+    });
+    if (!ev.ok) return ev;
+    await this.core.append(ev.datos);
+    Logger.info('svc', `deshecho cambio de ${ultimo.campo} en ${id}`);
+    return Ok({ campo: ultimo.campo, restaurado: ultimo.de });
+  }
+
+  listar({ soloActivos = true } = {}) {
+    const snap = this.core.snapshotVista('registro');
+    if (!snap.ok) return [];
+    const todos = Object.values(snap.datos.paciente ?? {});
+    return soloActivos ? todos.filter(p => p.activo !== false) : todos;
+  }
+
+  obtener(id) {
+    const snap = this.core.snapshotVista('registro');
+    return snap.datos.paciente?.[id] ?? null;
+  }
+
+  /** Facetas: agrupa registros por una faceta declarada. */
+  agruparPorFaceta(faceta) {
+    const campos = EsquemaEngine.camposDeFaceta('paciente', faceta);
+    if (!campos.length) return Err('faceta', `Faceta "${faceta}" sin campos`);
+    const pacientes = this.listar();
+    const grupos = {};
+    for (const p of pacientes) {
+      const clave = campos.map(c => p[c] ?? '—').join(' · ');
+      if (!grupos[clave]) grupos[clave] = [];
+      grupos[clave].push(p);
+    }
+    return Ok(grupos);
+  }
+
+  /** Búsqueda rápida por etiqueta usando el índice inverso. */
+  porEtiqueta(tag) {
+    const snap = this.core.snapshotVista('indiceEtiquetas');
+    const ids = snap.datos?.[tag] ?? [];
+    return ids.map(id => this.obtener(id)).filter(Boolean);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   IMPORT/EXPORT
+   ═══════════════════════════════════════════════════════════════════════ */
+
+class JSONAdapter {
+  constructor(service) { this.svc = service; }
+
+  /** Importa un array de objetos crudos aplicando inferencia. */
+  async importarPacientes(crudos) {
+    if (!Array.isArray(crudos)) return Err('formato', 'Se esperaba un array');
+    let creados = 0, fallidos = 0;
+    const avisos = [];
+    for (const raw of crudos) {
+      const inf = Inferidor.inferir('paciente', raw);
+      if (!inf.ok) { fallidos++; continue; }
+      const r = await this.svc.crear(inf.datos);
+      if (r.ok) creados++; else { fallidos++; avisos.push(...(r.detalles ?? [])); }
+      avisos.push(...inf.avisos);
+    }
+    Logger.info('import', `${creados} creados, ${fallidos} fallidos, ${avisos.length} avisos`);
+    return Ok({ creados, fallidos, avisos });
+  }
+
+  exportarTodo(core) {
+    return {
+      meta: { exportado: new Date().toISOString(), version: ESQUEMA.version, schema: ESQUEMA },
+      eventos: core.eventos,
+      snapshots: null // se regeneran al importar
+    };
+  }
+
+  exportarLogJSONL(core) {
+    return core.eventos.map(e => JSON.stringify(e)).join('\n');
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   TESTS
+   ═══════════════════════════════════════════════════════════════════════ */
+
+class TestRunner {
+  #out; #p = 0; #f = 0;
+  constructor(el) { this.#out = el; }
+  async run(nombre, fn) {
+    try {
+      const r = fn();
+      if (r instanceof Promise) await r;
+      this.#p++;
+      this.#out.innerHTML += `<div class="t"><span class="pill ok">PASS</span>${nombre}</div>`;
+    } catch (e) {
+      this.#f++;
+      this.#out.innerHTML += `<div class="t"><span class="pill err">FAIL</span>${nombre}: ${e.message}</div>`;
+    }
+  }
+  resumen() {
+    this.#out.innerHTML += `<div class="t" style="margin-top:6px;"><strong>${this.#p} pasan · ${this.#f} fallan</strong></div>`;
+  }
+}
+
+function assertEq(a, b, msg = '') {
+  const sa = JSON.stringify(a), sb = JSON.stringify(b);
+  if (sa !== sb) throw new Error(`${msg} esperado ${sb}, recibido ${sa}`);
+}
+function assertOk(r, msg = '') { if (!r.ok) throw new Error(`${msg} se esperaba Ok: ${r.error}/${r.razon}`); }
+function assertErr(r, msg = '') { if (r.ok) throw new Error(`${msg} se esperaba Err`); }
+
+async function ejecutarTests() {
+  const out = document.getElementById('testsOut');
+  const tr = new TestRunner(out);
+
+  // ── Esquema ──
+  await tr.run('esquema: válido', () => {
+    const r = EsquemaEngine.validar('paciente', { id:'x', nombre:'Ana', apellidos:'P', fechaNac:'1990-01-01' });
+    assertOk(r);
+  });
+  await tr.run('esquema: falta required', () => {
+    assertErr(EsquemaEngine.validar('paciente', { id:'x', nombre:'Ana' }));
+  });
+  await tr.run('esquema: enum inválido', () => {
+    assertErr(EsquemaEngine.validar('paciente', { id:'x', nombre:'A', apellidos:'B', fechaNac:'1990-01-01', sexo:'Z' }));
+  });
+
+  // ── EventoFactory ──
+  await tr.run('evento: diff solo emite campos cambiados', () => {
+    const antes = { id:'x', nombre:'Ana', apellidos:'P', fechaNac:'2000-01-01', telefono:'600' };
+    const despues = { ...antes, telefono:'611' };
+    const r = EventoFactory.diff('paciente', antes, despues);
+    assertOk(r);
+    assertEq(r.datos.length, 1);
+    assertEq(r.datos[0].tipo, 'campo_modificado_historico');
+  });
+  await tr.run('evento: diff campo sin histórico usa genérico', () => {
+    const antes = { id:'x', nombre:'Ana', ciudad:'Madrid' };
+    const despues = { ...antes, ciudad:'Sevilla' };
+    const r = EventoFactory.diff('paciente', antes, despues);
+    assertEq(r.datos[0].tipo, 'campo_modificado');
+  });
+
+  // ── Vistas ──
+  await tr.run('vista registro: creación + modificación', () => {
+    let e = VistaRegistro.init();
+    e = VistaRegistro.apply(e, { entidad:'paciente', entidadId:'x', tipo:'paciente_creado', a:{ id:'x', nombre:'Ana' } });
+    e = VistaRegistro.apply(e, { entidad:'paciente', entidadId:'x', tipo:'campo_modificado', campo:'nombre', a:'Ana María' });
+    assertEq(VistaRegistro.result(e).paciente.x.nombre, 'Ana María');
+  });
+  await tr.run('vista índice etiquetas: alta', () => {
+    let e = VistaIndiceEtiquetas.init();
+    e = VistaIndiceEtiquetas.apply(e, { entidad:'paciente', entidadId:'x', tipo:'paciente_creado', a:{ id:'x', etiquetas:['cronico','urgente'] } });
+    assertEq(VistaIndiceEtiquetas.result(e).cronico, ['x']);
+    assertEq(VistaIndiceEtiquetas.result(e).urgente, ['x']);
+  });
+  await tr.run('vista índice etiquetas: cambio', () => {
+    let e = VistaIndiceEtiquetas.init();
+    e = VistaIndiceEtiquetas.apply(e, { entidad:'paciente', entidadId:'x', tipo:'paciente_creado', a:{ id:'x', etiquetas:['cronico'] } });
+    e = VistaIndiceEtiquetas.apply(e, { entidad:'paciente', entidadId:'x', tipo:'campo_modificado', campo:'etiquetas', de:['cronico'], a:['urgente'] });
+    assertEq(VistaIndiceEtiquetas.result(e).cronico ?? [], []);
+    assertEq(VistaIndiceEtiquetas.result(e).urgente, ['x']);
+  });
+
+  // ── Diccionario / Inferidor ──
+  await tr.run('levenshtein: tefolono vs telefono = 3', () => {
+    assertEq(Diccionario.levenshtein('tefolono','telefono'), 3);
+  });
+  await tr.run('levenshtein: iguales = 0', () => {
+    assertEq(Diccionario.levenshtein('abc','abc'), 0);
+  });
+  await tr.run('inferidor: nombre canónico directo', () => {
+    const r = Inferidor.inferir('paciente', { nombre:'Ana', apellidos:'P', fechaNac:'1990-01-01' });
+    assertOk(r);
+    assertEq(r.datos.nombre, 'Ana');
+  });
+  await tr.run('inferidor: alias (tel → telefono)', () => {
+    const r = Inferidor.inferir('paciente', { nombre:'Ana', apellidos:'P', fechaNac:'1990-01-01', tel:'600' });
+    assertOk(r);
+    assertEq(r.datos.telefono, '600');
+    if (!r.avisos.some(a => a.campo === 'telefono' && a.nivel === 'seguro')) throw new Error('sin aviso seguro');
+  });
+  await tr.run('inferidor: typo telefono (tefolono)', () => {
+    const r = Inferidor.inferir('paciente', { nombre:'A', apellidos:'B', fechaNac:'2000-01-01', tefolono:'600' });
+    assertOk(r);
+    assertEq(r.datos.telefono, '600');
+  });
+  await tr.run('inferidor: clave desconocida genera aviso especulativo', () => {
+    const r = Inferidor.inferir('paciente', { nombre:'A', apellidos:'B', fechaNac:'2000-01-01', chorrada:'X' });
+    if (!r.avisos.some(a => a.campo === 'chorrada' && a.nivel === 'especulativo')) throw new Error('sin aviso');
+  });
+
+  // ── QueryEngine ──
+  await tr.run('query: eq', () => {
+    const r = QueryEngine.filtrar([{ a:1 },{ a:2 },{ a:1 }], [{ campo:'a', op:'eq', valor:1 }]);
+    assertEq(r.length, 2);
+  });
+  await tr.run('query: contiene (case-insensitive)', () => {
+    const r = QueryEngine.filtrar([{ n:'Ana' },{ n:'Luis' },{ n:'Anabel' }], [{ campo:'n', op:'contiene', valor:'ana' }]);
+    assertEq(r.length, 2);
+  });
+  await tr.run('query: gt', () => {
+    const r = QueryEngine.filtrar([{ e:30 },{ e:40 },{ e:50 }], [{ campo:'e', op:'gt', valor:35 }]);
+    assertEq(r.length, 2);
+  });
+  await tr.run('query: tieneTag', () => {
+    const r = QueryEngine.filtrar([{ t:['a','b'] },{ t:['c'] }], [{ campo:'t', op:'tieneTag', valor:'a' }]);
+    assertEq(r.length, 1);
+  });
+  await tr.run('query: OR', () => {
+    const r = QueryEngine.filtrar([{ a:1,b:1 },{ a:1,b:2 },{ a:3,b:3 }], [{ campo:'a', op:'eq', valor:1 },{ campo:'b', op:'eq', valor:3 }], 'OR');
+    assertEq(r.length, 3);
+  });
+
+  // ── Core + adaptador ──
+  const mem = new MemoryAdapter();
+  const core = new Core(mem);
+  await core.iniciar();
+
+  await tr.run('core: append + derive', async () => {
+    const ev = EventoFactory.crear({ entidad:'paciente', entidadId:'x', tipo:'paciente_creado', a:{ id:'x', nombre:'Ana', activo:true } });
+    await core.append(ev.datos);
+    assertEq(core.snapshotVista('registro').datos.paciente.x.nombre, 'Ana');
+  });
+
+  await tr.run('core: estadoEn por índice reconstruye pasado', async () => {
+    const idx = core.totalEventos - 1;
+    // añade otra modificación
+    const ev2 = EventoFactory.crear({ entidad:'paciente', entidadId:'x', tipo:'campo_modificado', campo:'nombre', de:'Ana', a:'Ana María' });
+    await core.append(ev2.datos);
+    const enPasado = core.estadoEn('paciente', 'x', { idx });
+    const enPresente = core.estadoEn('paciente', 'x');
+    assertEq(enPasado.nombre, 'Ana');
+    assertEq(enPresente.nombre, 'Ana María');
+  });
+
+  await tr.run('core: historialDe devuelve todos los eventos del id', async () => {
+    const h = core.historialDe('paciente', 'x');
+    assertEq(h.length, 2);
+  });
+
+  await tr.run('core: rebuild no altera resultado', async () => {
+    await core.rebuild();
+    assertEq(core.snapshotVista('registro').datos.paciente.x.nombre, 'Ana María');
+  });
+
+  // ── Servicio + deshacer ──
+  const mem2 = new MemoryAdapter();
+  const core2 = new Core(mem2);
+  await core2.iniciar();
+  const svc = new PacienteService(core2);
+
+  await tr.run('service: crear + editar + deshacer', async () => {
+    const r1 = await svc.crear({ id:'p1', nombre:'Luis', apellidos:'G', fechaNac:'1990-01-01', telefono:'600' });
+    assertOk(r1);
+    await svc.editar('p1', { telefono:'611' });
+    assertEq(svc.obtener('p1').telefono, '611');
+    const rd = await svc.deshacerUltimo('p1');
+    assertOk(rd);
+    assertEq(svc.obtener('p1').telefono, '600');
+  });
+
+  await tr.run('service: archivar no borra', async () => {
+    await svc.archivar('p1');
+    const p = svc.obtener('p1');
+    assertEq(p.activo, false);
+    assertEq(p.nombre, 'Luis');
+  });
+
+  await tr.run('service: faceta agrupa', async () => {
+    const r = svc.agruparPorFaceta('demografia');
+    assertOk(r);
+    if (Object.keys(r.datos).length === 0) throw new Error('sin grupos');
+  });
+
+  // ── Import con inferencia ──
+  await tr.run('import: array con alias y typo', async () => {
+    const mem3 = new MemoryAdapter();
+    const c3 = new Core(mem3);
+    await c3.iniciar();
+    const s3 = new PacienteService(c3);
+    const ad = new JSONAdapter(s3);
+    const r = await ad.importarPacientes([
+      { name:'Ana', surname:'P', fechanacimiento:'1990-01-01', tel:'600' },
+      { nombre:'Luis', apellidos:'G', fechaNac:'1985-05-05', tefolono:'611' }
+    ]);
+    assertOk(r);
+    assertEq(r.datos.creados, 2);
+  });
+
+  tr.resumen();
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   UI
+   ═══════════════════════════════════════════════════════════════════════ */
+
+class UI {
+  #core; #svc; #adapter; #jsonAdapter;
+
+  constructor(core, svc, adapter, jsonAdapter) {
+    this.#core = core;
+    this.#svc = svc;
+    this.#adapter = adapter;
+    this.#jsonAdapter = jsonAdapter;
+    this.#bind();
+    BUS.on('core:append', () => this.renderAll());
+    BUS.on('core:rebuild', () => this.renderAll());
+    BUS.on('core:reset', () => this.renderAll());
+    BUS.on('core:snapshot', () => this.renderStats());
+    this.#inicializarFacetas();
+    this.#inicializarQuery();
+    this.renderAll();
+  }
+
+  #esc(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  #status(msg, cls = '') {
+    const el = document.getElementById('formStatus');
+    el.textContent = msg;
+    el.className = 'status ' + cls;
+  }
+
+  #bind() {
+    document.getElementById('btnGuardar').onclick = () => this.#guardar();
+    document.getElementById('btnNuevo').onclick = () => this.#limpiar();
+    document.getElementById('btnDeshacer').onclick = () => this.#deshacer();
+    document.getElementById('btnArchivar').onclick = () => this.#archivar();
+    document.getElementById('btnRebuild').onclick = async () => {
+      await this.#core.rebuild();
+      this.#status('Vistas reconstruidas', 'ok');
+    };
+    document.getElementById('btnSnapshot').onclick = async () => {
+      await this.#core.forzarSnapshot();
+      this.#status('Snapshot guardado', 'ok');
+    };
+    document.getElementById('btnReset').onclick = async () => {
+      if (!confirm('¿Borrar todo?')) return;
+      await this.#core.reset();
+      this.#limpiar();
+    };
+    document.getElementById('facetaSel').onchange = () => this.renderLista();
+    document.getElementById('logFiltro').oninput = () => this.renderLog();
+    document.getElementById('logLimite').oninput = () => this.renderLog();
+    document.getElementById('btnReplay').onclick = () => this.#replay();
+    document.getElementById('replayId').onchange = () => this.#renderHistorialPaciente();
+
+    document.getElementById('btnImport').onclick = () => this.#importar();
+    document.getElementById('btnImportEjemplo').onclick = () => {
+      document.getElementById('importJson').value = JSON.stringify([
+        { name:'Ana', surname:'Pérez', fechanacimiento:'1990-03-15', tel:'600111222', city:'Madrid', seguro:'Adeslas' },
+        { nombre:'Luis', apellidos:'Gómez', fechaNac:'1985-05-05', tefolono:'600333444', ciudad:'Sevilla', tags:['cronico'] },
+        { nombe:'Marta', apellidos:'Ruiz', fechaNac:'1978-11-20', email:'marta@x.com', ciudad:'Valencia' }
+      ], null, 2);
+    };
+    document.getElementById('btnExportTodo').onclick = () => this.#descargar('backup.json', JSON.stringify(this.#jsonAdapter.exportarTodo(this.#core), null, 2));
+    document.getElementById('btnExportPacientes').onclick = () => {
+      const p = this.#svc.listar({ soloActivos: false });
+      this.#descargar('pacientes.json', JSON.stringify(p, null, 2));
+    };
+    document.getElementById('btnExportLog').onclick = () => this.#descargar('log.jsonl', this.#jsonAdapter.exportarLogJSONL(this.#core));
+  }
+
+  #descargar(nombre, contenido) {
+    const blob = new Blob([contenido], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = nombre;
+    a.click();
+    document.getElementById('exportOut').innerHTML = `<span class="pill ok">OK</span> ${nombre}`;
+    Logger.info('export', nombre);
+  }
+
+  async #guardar() {
+    const datos = {
+      id: document.getElementById('f_id').value || undefined,
+      nombre: document.getElementById('f_nombre').value.trim(),
+      apellidos: document.getElementById('f_apellidos').value.trim(),
+      fechaNac: document.getElementById('f_fechaNac').value,
+      sexo: document.getElementById('f_sexo').value || undefined,
+      telefono: document.getElementById('f_telefono').value.trim(),
+      email: document.getElementById('f_email').value.trim(),
+      ciudad: document.getElementById('f_ciudad').value.trim(),
+      aseguradora: document.getElementById('f_aseguradora').value.trim(),
+      etiquetas: document.getElementById('f_etiquetas').value.split(',').map(s => s.trim()).filter(Boolean)
+    };
+    Object.keys(datos).forEach(k => { if (datos[k] === '' || datos[k] === undefined) delete datos[k]; });
+    if (!datos.etiquetas) delete datos.etiquetas;
+
+    const id = document.getElementById('f_id').value;
+    const r = id ? await this.#svc.editar(id, datos) : await this.#svc.crear(datos);
+    if (!r.ok) { this.#status(`❌ ${r.razon}${r.detalles ? ': ' + r.detalles.join('; ') : ''}`, 'err'); return; }
+    document.getElementById('f_id').value = r.datos.id;
+    this.#status('✅ Guardado', 'ok');
+  }
+
+  async #deshacer() {
+    const id = document.getElementById('f_id').value;
+    if (!id) { this.#status('Carga un paciente primero', 'err'); return; }
+    const r = await this.#svc.deshacerUltimo(id);
+    if (!r.ok) { this.#status(`❌ ${r.razon}`, 'err'); return; }
+    this.#status(`↩ Deshecho: ${r.datos.campo} → ${r.datos.restaurado}`, 'ok');
+    this.#cargarForm(id);
+  }
+
+  async #archivar() {
+    const id = document.getElementById('f_id').value;
+    if (!id) { this.#status('Selecciona un paciente', 'err'); return; }
+    const r = await this.#svc.archivar(id);
+    this.#status(r.ok ? '📦 Archivado' : `❌ ${r.razon}`, r.ok ? 'ok' : 'err');
+    this.#limpiar();
+  }
+
+  #limpiar() {
+    ['f_id','f_nombre','f_apellidos','f_fechaNac','f_telefono','f_email','f_ciudad','f_aseguradora','f_etiquetas'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('f_sexo').value = '';
+    this.#status('');
+  }
+
+  #cargarForm(id) {
+    const p = this.#svc.obtener(id);
+    if (!p) return;
+    document.getElementById('f_id').value = p.id || '';
+    document.getElementById('f_nombre').value = p.nombre || '';
+    document.getElementById('f_apellidos').value = p.apellidos || '';
+    document.getElementById('f_fechaNac').value = p.fechaNac || '';
+    document.getElementById('f_sexo').value = p.sexo || '';
+    document.getElementById('f_telefono').value = p.telefono || '';
+    document.getElementById('f_email').value = p.email || '';
+    document.getElementById('f_ciudad').value = p.ciudad || '';
+    document.getElementById('f_aseguradora').value = p.aseguradora || '';
+    document.getElementById('f_etiquetas').value = Array.isArray(p.etiquetas) ? p.etiquetas.join(', ') : '';
+  }
+
+  renderAll() {
+    this.renderLista();
+    this.renderLog();
+    this.renderStats();
+    this.renderContadores();
+    this.renderHistorico();
+    this.renderReplaySelector();
+  }
+
+  renderLista() {
+    const faceta = document.getElementById('facetaSel').value;
+    const cont = document.getElementById('listaPacientes');
+    let items;
+    if (faceta) {
+      const r = this.#svc.agruparPorFaceta(faceta);
+      if (!r.ok) { cont.innerHTML = `<div class="empty">${this.#esc(r.razon)}</div>`; return; }
+      items = Object.entries(r.datos).map(([k, arr]) =>
+        `<div class="kv"><span class="k">${this.#esc(k)} (${arr.length})</span><span class="v">${arr.map(p => this.#esc(p.nombre)).join(', ')}</span></div>`
+      ).join('');
+      cont.innerHTML = items || '<div class="empty">Sin grupos.</div>';
+      return;
+    }
+    const lista = this.#svc.listar();
+    if (!lista.length) { cont.innerHTML = '<div class="empty">Sin registros.</div>'; return; }
+    cont.innerHTML = lista.map(p => `
+      <div class="item">
+        <span><strong>${this.#esc(p.nombre)} ${this.#esc(p.apellidos)}</strong> · ${this.#esc(p.ciudad || '—')}
+          ${Array.isArray(p.etiquetas) && p.etiquetas.length ? '· ' + p.etiquetas.map(t => `<span class="tag">${this.#esc(t)}</span>`).join(' ') : ''}
+        </span>
+        <span class="actions"><button class="small" data-id="${this.#esc(p.id)}">Editar</button></span>
+      </div>
+    `).join('');
+    cont.querySelectorAll('button[data-id]').forEach(b => b.onclick = () => this.#cargarForm(b.dataset.id));
+  }
+
+  renderLog() {
+    const filtro = document.getElementById('logFiltro').value.toLowerCase();
+    const limite = parseInt(document.getElementById('logLimite').value, 10) || 100;
+    let evs = this.#core.eventos;
+    if (filtro) evs = evs.filter(e =>
+      e.tipo.toLowerCase().includes(filtro) ||
+      (e.campo ?? '').toLowerCase().includes(filtro) ||
+      e.entidadId.toLowerCase().includes(filtro) ||
+      e.entidad.toLowerCase().includes(filtro)
+    );
+    evs = evs.slice(-limite).reverse();
+    const log = document.getElementById('logView');
+    log.innerHTML = evs.length
+      ? evs.map(ev => `<div class="ev">
+          <span style="color:#475569">${ev.ts.slice(11,19)}</span>
+          <span style="color:#93c5fd">${this.#esc(ev.entidadId.slice(-6))}</span>
+          <span style="color:#fbbf24">${this.#esc(ev.tipo)}</span>
+          ${ev.campo ? `<span style="color:#4ade80">${this.#esc(ev.campo)}</span>` : ''}
+          ${ev.actor !== 'usuario_local' ? `<span style="color:#c084fc">(${this.#esc(ev.actor)})</span>` : ''}
+        </div>`).join('')
+      : '<div class="empty">Sin eventos.</div>';
+    log.scrollTop = 0;
+  }
+
+  async renderStats() {
+    document.getElementById('countEv').textContent = this.#core.totalEventos;
+    try {
+      const s = await this.#adapter.todosSnapshots();
+      document.getElementById('countSnap').textContent = s.length;
+    } catch { document.getElementById('countSnap').textContent = '?'; }
+  }
+
+  renderContadores() {
+    const r = this.#core.snapshotVista('contadores');
+    if (!r.ok) return;
+    const el = document.getElementById('viewContadores');
+    if (!el) return;
+  }
+
+  renderHistorico() {
+    const r = this.#core.snapshotVista('historico');
+    if (!r.ok) return;
+    const h = r.datos.slice(-10).reverse();
+    const el = document.getElementById('viewHistorico');
+    if (!el) return;
+  }
+
+  #inicializarFacetas() {
+    const sel = document.getElementById('facetaSel');
+    for (const f of Object.keys(ESQUEMA.facetas)) {
+      const opt = document.createElement('option');
+      opt.value = f; opt.textContent = f;
+      sel.appendChild(opt);
+    }
+  }
+
+  renderReplaySelector() {
+    const sel = document.getElementById('replayId');
+    const actual = sel.value;
+    sel.innerHTML = '<option value="">— selecciona —</option>';
+    for (const p of this.#svc.listar({ soloActivos: false })) {
+      const o = document.createElement('option');
+      o.value = p.id; o.textContent = `${p.nombre} ${p.apellidos}`;
+      sel.appendChild(o);
+    }
+    if (actual) sel.value = actual;
+  }
+
+  #replay() {
+    const id = document.getElementById('replayId').value;
+    const fecha = document.getElementById('replayFecha').value;
+    const out = document.getElementById('replayOut');
+    if (!id) { out.innerHTML = '<div class="empty">Selecciona paciente.</div>'; return; }
+    const opts = fecha ? { fecha } : {};
+    const estado = this.#core.estadoEn('paciente', id, opts);
+    if (!estado) { out.innerHTML = '<div class="empty">Sin datos en esa fecha.</div>'; return; }
+    out.innerHTML = Object.entries(estado).map(([k, v]) =>
+      `<div class="kv"><span class="k">${this.#esc(k)}</span><span class="v">${this.#esc(Array.isArray(v) ? v.join(', ') : v)}</span></div>`
+    ).join('');
+  }
+
+  #renderHistorialPaciente() {
+    const id = document.getElementById('replayId').value;
+    const cont = document.getElementById('historialPaciente');
+    if (!id) { cont.innerHTML = '<div class="empty">Selecciona un paciente.</div>'; return; }
+    const h = this.#core.historialDe('paciente', id);
+    if (!h.length) { cont.innerHTML = '<div class="empty">Sin eventos.</div>'; return; }
+    cont.innerHTML = h.map(ev => `
+      <div class="kv">
+        <span class="k">${ev.ts.slice(0,19).replace('T',' ')} · ${this.#esc(ev.tipo)}${ev.campo ? ' · ' + this.#esc(ev.campo) : ''}</span>
+        <span class="v">${ev.campo ? `${this.#esc(ev.de ?? '∅')} → ${this.#esc(ev.a ?? '∅')}` : ''}</span>
+      </div>
+    `).join('');
+  }
+
+  #inicializarQuery() {
+    const rows = document.getElementById('queryRows');
+    rows.innerHTML = '';
+    this.#addQueryRow();
+    document.getElementById('btnAddFiltro').onclick = () => this.#addQueryRow();
+    document.getElementById('btnQueryReset').onclick = () => { rows.innerHTML = ''; this.#addQueryRow(); document.getElementById('queryOut').innerHTML = '<div class="empty">Sin búsqueda.</div>'; };
+    document.getElementById('btnQuery').onclick = () => this.#ejecutarQuery();
+  }
+
+  #addQueryRow() {
+    const rows = document.getElementById('queryRows');
+    const idx = rows.children.length;
+    const div = document.createElement('div');
+    div.className = 'row'; div.dataset.idx = idx;
+    const campos = Object.keys(ESQUEMA.entidades.paciente.campos);
+    const ops = ['eq','ne','contiene','gt','lt','entre','tieneTag'];
+    div.innerHTML = `
+      <select class="q-campo" style="flex:1;">${campos.map(c => `<option>${c}</option>`).join('')}</select>
+      <select class="q-op" style="width:100px;">${ops.map(o => `<option>${o}</option>`).join('')}</select>
+      <input class="q-valor" placeholder="valor" style="flex:2;">
+      <button class="small danger q-del">×</button>
+    `;
+    div.querySelector('.q-del').onclick = () => div.remove();
+    rows.appendChild(div);
+  }
+
+  #ejecutarQuery() {
+    const rows = document.querySelectorAll('#queryRows .row');
+    const filtros = [];
+    for (const r of rows) {
+      const campo = r.querySelector('.q-campo').value;
+      const op = r.querySelector('.q-op').value;
+      const valorRaw = r.querySelector('.q-valor').value;
+      if (!valorRaw) continue;
+      let valor = valorRaw;
+      if (op === 'entre') {
+        const [a, b] = valorRaw.split(',').map(s => Number(s.trim()));
+        valor = { min: a, max: b };
+      } else if (op === 'gt' || op === 'lt') valor = Number(valor);
+      filtros.push({ campo, op, valor });
+    }
+    const pacientes = this.#svc.listar({ soloActivos: false });
+    const r = QueryEngine.filtrar(pacientes, filtros);
+    document.getElementById('queryOut').innerHTML = r.length
+      ? r.map(p => `<div class="kv"><span class="k">${this.#esc(p.nombre)} ${this.#esc(p.apellidos)}</span><span class="v">${this.#esc(p.ciudad || '')}</span></div>`).join('')
+      : '<div class="empty">Sin resultados.</div>';
+    Logger.info('query', `${filtros.length} filtros, ${r.length} resultados`);
+  }
+
+  async #importar() {
+    const txt = document.getElementById('importJson').value.trim();
+    const out = document.getElementById('importAvisos');
+    if (!txt) { out.innerHTML = '<div class="empty">Sin JSON.</div>'; return; }
+    try {
+      const raw = JSON.parse(txt);
+      const r = await this.#jsonAdapter.importarPacientes(raw);
+      if (!r.ok) { out.innerHTML = `<div class="aviso especulativo">${this.#esc(r.razon)}</div>`; return; }
+      const avisosHtml = r.datos.avisos.slice(0, 20).map(a =>
+        `<div class="aviso ${a.nivel}"><strong>${a.nivel}</strong> · ${this.#esc(a.campo)}: ${this.#esc(a.mensaje)}</div>`
+      ).join('');
+      out.innerHTML = `<div class="kv"><span class="k">creados</span><span class="v">${r.datos.creados}</span></div>
+                       <div class="kv"><span class="k">fallidos</span><span class="v">${r.datos.fallidos}</span></div>
+                       <div style="margin-top:8px;">${avisosHtml || '<div class="empty">Sin avisos.</div>'}</div>`;
+    } catch (e) {
+      out.innerHTML = `<div class="aviso especulativo">JSON inválido: ${this.#esc(e.message)}</div>`;
+    }
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ARRANQUE
+   ═══════════════════════════════════════════════════════════════════════ */
+
+async function main() {
+  let adapter;
+  try {
+    adapter = new IndexedDBAdapter();
+    await adapter.size();
+  } catch (e) {
+    Logger.warn('boot', 'IndexedDB no disponible, usando MemoryAdapter', e.message);
+    adapter = new MemoryAdapter();
+  }
+  const core = new Core(adapter);
+  await core.iniciar();
+  const svc = new PacienteService(core);
+  const jsonAdapter = new JSONAdapter(svc);
+  window.__app = { core, svc, adapter, jsonAdapter, ESQUEMA, QueryEngine, Inferidor, Diccionario };
+  new UI(core, svc, adapter, jsonAdapter);
+  await ejecutarTests();
+}
+
+main().catch(e => {
+  Logger.error('boot', 'Error fatal', e.message);
+  document.body.insertAdjacentHTML('afterbegin',
+    `<div style="background:#7f1d1d;color:#fecaca;padding:10px;border-radius:6px;margin-bottom:10px;">Error: ${e.message}</div>`);
+});
+</script>
+</body>
+</html>
